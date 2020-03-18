@@ -3,7 +3,7 @@ name: BIOPYPIR-APPROVED
 on: [push,pull_request] 
 jobs:
   build:
-    runs-on: ubuntu-latest 
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         python-version: [3.6,3.7] 
@@ -36,7 +36,7 @@ jobs:
         pip install junit2html
         
     - name: simple pytest
-      run: python3 setup.py test
+      run: pytest manubot
     #===============================================#
     #- name: STEP 5. Pytest-ing and Code Coverage (gen_baseline_images.sh)
     #  run: |
