@@ -1,6 +1,6 @@
 name: Python Package Tests
 
-on: [issue]
+on: [issues]
 
 jobs:
   build:
