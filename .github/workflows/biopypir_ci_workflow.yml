@@ -8,6 +8,9 @@ jobs:
       matrix:
         python-version: [3.6,3.7] 
         os: [macOS-latest, ubuntu-latest] 
+    env: 
+      REPO: ${{ github.repository }}
+      WORKSPACE: ${{ github.workspace }}
     steps:
     - name: STEP 1. Check-Out Repo 
       uses: actions/checkout@v2     
@@ -16,12 +19,6 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
-    - name: custom linter
-      uses: benstear/python-pylint-github-action@master
-      id: linter
-      with:
-        package_name: manubot
-        verbosity: score_only
         
     #===============================================#
     - name: STEP 3. Install dependencies
@@ -35,8 +32,15 @@ jobs:
         pip install coveralls
         pip install junit2html
         
+    - name: simple linter
+      id: linter
+      run: pylint "$WORKSPACE" --exit-zero --reports=y | > pylint-report.txt
+    #===============================================#
+    - name: test build status
+      run: python setup.py build
+    #===============================================#
     - name: simple pytest
-      run: pytest manubot
+      run: pytest "$WORKSPACE/tests/" --color=yes --cov=manubot
     #===============================================#
     #- name: STEP 5. Pytest-ing and Code Coverage (gen_baseline_images.sh)
     #  run: |
