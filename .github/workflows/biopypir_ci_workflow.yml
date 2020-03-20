@@ -41,8 +41,7 @@ jobs:
       run: python setup.py build
     #===============================================#
     - name: simple pytest
-      run: pytest -rs --color=yes 
-    #"not pandoc_version_sensitive"
+      run: pytest -rs --color=yes -m "not pandoc_version_sensitive"
     #run: pytest "$WORKSPACE/tests/" --color=yes --cov=manubot
     #===============================================#
     #- name: STEP 5. Pytest-ing and Code Coverage (gen_baseline_images.sh)
