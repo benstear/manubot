@@ -31,6 +31,7 @@ jobs:
         pip install python-coveralls
         pip install coveralls
         pip install junit2html
+        pip install pytest-cov
         
     - name: simple linter
       id: linter
