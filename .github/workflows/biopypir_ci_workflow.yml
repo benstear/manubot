@@ -41,7 +41,7 @@ jobs:
       run: python setup.py build
     #===============================================#
     - name: simple pytest
-      run: pytest -rs --color=yes -m 
+      run: pytest -rs --color=yes 
     #"not pandoc_version_sensitive"
     #run: pytest "$WORKSPACE/tests/" --color=yes --cov=manubot
     #===============================================#
