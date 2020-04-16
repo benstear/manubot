@@ -1,68 +1,127 @@
 ---
 name: BIOPYPIR-APPROVED
-on: [push,pull_request] 
+on: 
+  push:
+  pull_request:
+  #schedule:
+  #  - cron: '0 12 * * 7'   # 12:00 UTC every Sat
+    
 jobs:
-  build:
+  biopypir_testing:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        python-version: [3.6,3.7] 
-        os: [macOS-latest, ubuntu-latest] 
+        python-version: [3.5,3.6,3.7] 
+        os: [ubuntu-latest, macOS-latest] 
+        #architecture: [x64]
     env: 
+      WORKSPACE: ${{ github.workspace }} # /home/runner/work/scedar/scedar
       REPO: ${{ github.repository }}
-      WORKSPACE: ${{ github.workspace }}
     steps:
     - name: STEP 1. Check-Out Repo 
       uses: actions/checkout@v2     
     #===============================================#
-    - name: STEP 2. Set-Up Python ${{ matrix.python-version }}
+    - name: ${{matrix.os}}-py${{matrix.python-version}}
       uses: actions/setup-python@v1
       with:
-        python-version: ${{ matrix.python-version }}
-        
+        python-version: ${{ matrix.python-version }}       
     #===============================================#
     - name: STEP 3. Install dependencies
       run: |
-        pwd
-        pip install --upgrade pip setuptools wheel
-        pip install --no-binary :all: nmslib
-        pip install .
-        pip install pytest
-        pip install python-coveralls
-        pip install coveralls
-        pip install junit2html
-        pip install pytest-cov
-        
+        pip install pylint
+      #  pip install --upgrade pip setuptools wheel
+      #  pip install --no-binary :all: nmslib
+      #  pip install .
+      #  pip install pytest
+      #  pip install pytest-cov
+      #  pip install python-coveralls
+      #pip install coveralls
+      #pip install junit2html
+      #pip list -v  
+    #===============================================#
     - name: simple linter
       id: linter
-      run: pylint "$WORKSPACE" --exit-zero --reports=y | > pylint-report.txt
-    #===============================================#
-    - name: test build status
-      run: python setup.py build
-    #===============================================#
-    - name: simple pytest
-      run: pytest -rs --color=yes -m "not pandoc_version_sensitive"
-    #run: pytest "$WORKSPACE/tests/" --color=yes --cov=manubot
-    - name: STEP 6. Run Coveralls 
-      env:
-        COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
-        COVERALLS_PARALLEL: true
-      run: coveralls
-   #===============================================#
-    - name: coveralls finish
-      uses: coverallsapp/github-action@master
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        parallel-finished: true
-    #===============================================#
-    - name: STEP 7. Zip Artifacts
       run: |
-        zip artifacts.zip coverage-report.html pylint-report.txt
+          chmod +x .github/workflows/biopypir_helper.sh
+          .github/workflows/biopypir_helper.sh  "LINT"
     #===============================================#
+    #- name: test build status
+    #  id: builder
+    #  run: .github/workflows/biopypir_helper.sh  "BUILD"
+    #===============================================#
+   # - name: simple pytest
+   #   id: pytester
+   #   continue-on-error: false   # we want this to fail if unit tests are broken, job2 will let us know it failed,
+   #   run: .github/workflows/biopypir_helper.sh "TEST";     #  unless job2 needs: [job1]
+   #===============================================#
+    #- name: check pytest pass
+    #  id: pytestpass
+    #  if: success()
+    #  run: echo "::set-output name=pytestpass::True" 
+    #===============================================#
+   # - name: PIP deployment test    # make sure this fails if deployment fails, does OS matter here?
+   #   continue-on-error: true
+   #   uses: BSFishy/pip-action@v1
+   #   with:
+   #     packages: scedar   #==0.2.0  # use ${{github.repository}} to hardcode
+   #===============================================#
+   # - name: PIP pass check
+   #   id: pipcheck
+   #   if: success()
+   #   run: echo "::set-output name=pip_output::True"  
+    #===============================================#
+    - name: check license
+      if: startsWith(matrix.os, 'ubuntu')
+      uses: datreeio/validate-license-action@master
+      with:
+        args: "MIT, ISC"  #"Apache License 2.0, MIT, ISC"
+    #===============================================#
+    - name: license pass check   # alter the actual license-check action (bash fnc from js env) 
+      id: licensecheck           # to output PASS on success
+      if: success()     
+      run: echo "::set-output name=license_output::True"
+    #===============================================#
+    - name: print lint var
+      run: |
+          .github/workflows/biopypir_helper.sh  "GATHER" \
+          "${{github.repository}}" \
+          "${{steps.linter.outputs.pylint-score}}" \
+          "${{steps.licensecheck.outputs.license_output}}" \
+          "${{matrix.python-version}}" \
+          "${{matrix.os}}"
+     #   "${{steps.builder.outputs.build_output}}" \
+     #   "${{steps.pytester.outputs.pytest_score}}" \
+     #   "${{steps.pipcheck.outputs.pip_output}}" \
+     #   "${{steps.pytestpass.outputs.pytestpass}}" \
+     #   "${{matrix.python-version}}" 
+   #===============================================#
+   # - run: cat full_report.json
+    
     - name: Upload artifact
       uses: actions/upload-artifact@v1.0.0
       with:
-        name: artifacts.zip
-        path: artifacts.zip
-        
-      
+        name: ${{matrix.os}}-py${{matrix.python-version}}
+        path: ${{matrix.os}}-py${{matrix.python-version}}.json
+            
+  job2:
+      needs: [biopypir_testing]
+      if: always()
+      runs-on: [ubuntu-latest]
+      steps:
+        - name: Download artifact
+          uses: actions/download-artifact@v2-preview
+
+        - name: check the jobs
+          id: mystatus
+          run: |
+            (curl -X GET -s -u "admin:${{ secrets.PAT3 }}" https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs \
+            | jq ".jobs[] | {job_status: .conclusion, matrix: .name}") > mystatus.json
+            cat mystatus.json
+
+        - name: Upload artifact
+          uses: actions/upload-artifact@v1.0.0
+          with:
+            name:  mystatus
+            path:  mystatus.json
+
